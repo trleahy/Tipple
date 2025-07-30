@@ -2,16 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { getCocktailStats } from '@/utils/cocktailUtils';
 import { getFavoriteIdsSync } from '@/utils/favoritesUtils';
 import { getShoppingListCountSync } from '@/utils/shoppingListUtils';
+import { getAdminCocktails, getAdminIngredients } from '@/utils/adminDataUtils';
 import { CocktailCategory } from '@/types/cocktail';
-
-// Dynamically import AdminLayout to reduce initial bundle size
-const AdminLayout = dynamic(() => import('@/components/AdminLayout'), {
-  loading: () => <div className="flex items-center justify-center min-h-screen">Loading...</div>
-});
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -22,27 +17,57 @@ export default function AdminDashboard() {
     totalShoppingLists: 0,
     recentActivity: [] as string[]
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadStats = () => {
-      const cocktailStats = getCocktailStats();
-      const favorites = getFavoriteIdsSync();
-      const shoppingListItems = getShoppingListCountSync();
-      const categories = Object.values(CocktailCategory).length;
+    const loadStats = async () => {
+      setIsLoading(true);
+      try {
+        // Get real-time data from Supabase
+        const cocktails = await getAdminCocktails();
+        const ingredients = await getAdminIngredients();
+        const favorites = getFavoriteIdsSync();
+        const shoppingListItems = getShoppingListCountSync();
+        const categories = Object.values(CocktailCategory).length;
 
-      setStats({
-        totalCocktails: cocktailStats.totalCocktails,
-        totalIngredients: cocktailStats.totalIngredients,
-        totalCategories: categories,
-        totalFavorites: favorites.length,
-        totalShoppingLists: shoppingListItems,
-        recentActivity: [
-          'System initialized',
-          `${cocktailStats.totalCocktails} cocktails loaded`,
-          `${cocktailStats.totalIngredients} ingredients available`,
-          'Admin panel accessed'
-        ]
-      });
+        setStats({
+          totalCocktails: cocktails.length,
+          totalIngredients: ingredients.length,
+          totalCategories: categories,
+          totalFavorites: favorites.length,
+          totalShoppingLists: shoppingListItems,
+          recentActivity: [
+            'System initialized',
+            `${cocktails.length} cocktails loaded from database`,
+            `${ingredients.length} ingredients available`,
+            'Admin panel accessed',
+            `Last updated: ${new Date().toLocaleTimeString()}`
+          ]
+        });
+      } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+        // Fallback to sync data
+        const cocktailStats = getCocktailStats();
+        const favorites = getFavoriteIdsSync();
+        const shoppingListItems = getShoppingListCountSync();
+        const categories = Object.values(CocktailCategory).length;
+
+        setStats({
+          totalCocktails: cocktailStats.totalCocktails,
+          totalIngredients: cocktailStats.totalIngredients,
+          totalCategories: categories,
+          totalFavorites: favorites.length,
+          totalShoppingLists: shoppingListItems,
+          recentActivity: [
+            'System initialized (offline mode)',
+            `${cocktailStats.totalCocktails} cocktails loaded from cache`,
+            `${cocktailStats.totalIngredients} ingredients available`,
+            'Admin panel accessed'
+          ]
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadStats();
@@ -80,8 +105,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -94,7 +118,13 @@ export default function AdminDashboard() {
             <div className="flex items-center">
               <div className="text-3xl mr-4">🍸</div>
               <div>
-                <div className="text-2xl font-bold text-gray-900">{stats.totalCocktails}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {isLoading ? (
+                    <div className="animate-pulse bg-gray-200 h-8 w-12 rounded"></div>
+                  ) : (
+                    stats.totalCocktails
+                  )}
+                </div>
                 <div className="text-sm text-gray-600">Cocktails</div>
               </div>
             </div>
@@ -104,7 +134,13 @@ export default function AdminDashboard() {
             <div className="flex items-center">
               <div className="text-3xl mr-4">🧪</div>
               <div>
-                <div className="text-2xl font-bold text-gray-900">{stats.totalIngredients}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {isLoading ? (
+                    <div className="animate-pulse bg-gray-200 h-8 w-12 rounded"></div>
+                  ) : (
+                    stats.totalIngredients
+                  )}
+                </div>
                 <div className="text-sm text-gray-600">Ingredients</div>
               </div>
             </div>
@@ -217,6 +253,5 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-    </AdminLayout>
   );
 }

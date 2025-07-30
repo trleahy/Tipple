@@ -1,6 +1,6 @@
 /**
- * Authentication Service - Handles Supabase auth with anonymous user support
- * Provides seamless transition between anonymous and authenticated states
+ * Authentication Service - Handles Supabase auth with admin support
+ * Uses Supabase's isomorphic JavaScript library for authentication
  */
 
 'use client';
@@ -11,7 +11,6 @@ import { User, Session } from '@supabase/supabase-js';
 export interface UserProfile {
   id: string;
   email?: string;
-  isAnonymous: boolean;
   isAdmin: boolean;
   createdAt: string;
   lastLoginAt: string;
@@ -39,66 +38,22 @@ let authListeners: ((state: AuthState) => void)[] = [];
  */
 export function onAuthStateChange(callback: (state: AuthState) => void): () => void {
   authListeners.push(callback);
-  
-  // Immediately call with current state
-  callback(authState);
-  
-  // Return unsubscribe function
+  // Only call callback with current state if auth has been initialized
+  // This prevents sending stale loading state before initialization
+  if (!authState.loading || authState.user || authState.error) {
+    callback(authState);
+  }
   return () => {
     authListeners = authListeners.filter(listener => listener !== callback);
   };
 }
 
 /**
- * Notify all listeners of auth state changes
- */
-function notifyAuthStateChange(): void {
-  authListeners.forEach(listener => listener(authState));
-}
-
-/**
- * Update auth state
+ * Update auth state and notify listeners
  */
 function updateAuthState(updates: Partial<AuthState>): void {
   authState = { ...authState, ...updates };
-  notifyAuthStateChange();
-}
-
-/**
- * Get or create anonymous user profile
- */
-async function getOrCreateAnonymousUser(): Promise<UserProfile> {
-  try {
-    // Check if we have an existing anonymous user
-    let anonymousId = localStorage.getItem('tipple-anonymous-user-id');
-
-    if (!anonymousId) {
-      anonymousId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('tipple-anonymous-user-id', anonymousId);
-      localStorage.setItem('tipple-anonymous-user-created', new Date().toISOString());
-    }
-
-    const createdAt = localStorage.getItem('tipple-anonymous-user-created') || new Date().toISOString();
-    
-    return {
-      id: anonymousId,
-      isAnonymous: true,
-      isAdmin: false,
-      createdAt,
-      lastLoginAt: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error('Error creating anonymous user:', error);
-    // Fallback anonymous user
-    const fallbackId = `anon_${Date.now()}_fallback`;
-    return {
-      id: fallbackId,
-      isAnonymous: true,
-      isAdmin: false,
-      createdAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString()
-    };
-  }
+  authListeners.forEach(listener => listener(authState));
 }
 
 /**
@@ -134,7 +89,6 @@ async function transformSupabaseUser(user: User): Promise<UserProfile> {
     return {
       id: user.id,
       email: user.email,
-      isAnonymous: false,
       isAdmin: profile?.is_admin || false,
       createdAt: user.created_at,
       lastLoginAt: new Date().toISOString()
@@ -144,7 +98,6 @@ async function transformSupabaseUser(user: User): Promise<UserProfile> {
     return {
       id: user.id,
       email: user.email,
-      isAnonymous: false,
       isAdmin: false,
       createdAt: user.created_at,
       lastLoginAt: new Date().toISOString()
@@ -157,27 +110,38 @@ async function transformSupabaseUser(user: User): Promise<UserProfile> {
  */
 export async function initAuth(): Promise<void> {
   try {
+    console.log('Initializing auth...');
     updateAuthState({ loading: true, error: null });
-    
-    // Get current session from Supabase
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
+
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Auth initialization timeout')), 10000);
+    });
+
+    // Get current session from Supabase with timeout
+    const { data: { session }, error } = await Promise.race([
+      supabase.auth.getSession(),
+      timeoutPromise
+    ]);
+
+    console.log('Session retrieved:', session ? 'found' : 'none', error ? `error: ${error.message}` : 'no error');
+
     if (error) {
       console.warn('Supabase auth error:', error);
-      // Fall back to anonymous user
-      const anonymousUser = await getOrCreateAnonymousUser();
       updateAuthState({
-        user: anonymousUser,
+        user: null,
         session: null,
         loading: false,
-        error: null
+        error: error.message
       });
       return;
     }
-    
+
     if (session?.user) {
       // User is authenticated
+      console.log('User authenticated, transforming user profile...');
       const userProfile = await transformSupabaseUser(session.user);
+      console.log('User profile created:', userProfile);
       updateAuthState({
         user: userProfile,
         session,
@@ -185,10 +149,10 @@ export async function initAuth(): Promise<void> {
         error: null
       });
     } else {
-      // No authenticated user, use anonymous
-      const anonymousUser = await getOrCreateAnonymousUser();
+      // No authenticated user
+      console.log('No authenticated user found');
       updateAuthState({
-        user: anonymousUser,
+        user: null,
         session: null,
         loading: false,
         error: null
@@ -196,10 +160,8 @@ export async function initAuth(): Promise<void> {
     }
   } catch (error) {
     console.error('Auth initialization failed:', error);
-    // Fall back to anonymous user
-    const anonymousUser = await getOrCreateAnonymousUser();
     updateAuthState({
-      user: anonymousUser,
+      user: null,
       session: null,
       loading: false,
       error: error instanceof Error ? error.message : 'Authentication failed'
@@ -232,10 +194,6 @@ export async function signIn(email: string, password: string): Promise<{ success
         loading: false,
         error: null
       });
-      
-      // Migrate anonymous data if needed
-      await migrateAnonymousData();
-      
       return { success: true };
     }
     
@@ -273,10 +231,6 @@ export async function signUp(email: string, password: string): Promise<{ success
         loading: false,
         error: null
       });
-      
-      // Migrate anonymous data if needed
-      await migrateAnonymousData();
-      
       return { success: true };
     }
     
@@ -295,25 +249,39 @@ export async function signOut(): Promise<void> {
   try {
     updateAuthState({ loading: true, error: null });
     
+    // Sign out from Supabase (this will clear their session storage)
     await supabase.auth.signOut();
     
-    // Switch back to anonymous user
-    const anonymousUser = await getOrCreateAnonymousUser();
+    // Clear any additional stored auth data
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('tipple-auth'); // Clear our custom storage
+      localStorage.removeItem('cocktailflow-admin-auth'); // Clear old admin session storage
+
+      // Clear any other auth-related items
+      const authKeys = ['sb-'];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && authKeys.some(prefix => key.startsWith(prefix))) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+    
+    // Update our local state
     updateAuthState({
-      user: anonymousUser,
+      user: null,
       session: null,
       loading: false,
       error: null
     });
   } catch (error) {
     console.error('Sign out error:', error);
-    // Still switch to anonymous user even if sign out failed
-    const anonymousUser = await getOrCreateAnonymousUser();
+    // Still try to clear state even if there's an error
     updateAuthState({
-      user: anonymousUser,
+      user: null,
       session: null,
       loading: false,
-      error: null
+      error: error instanceof Error ? error.message : 'Sign out failed'
     });
   }
 }
@@ -333,10 +301,17 @@ export function getAuthState(): AuthState {
 }
 
 /**
- * Check if user is authenticated (not anonymous)
+ * Refresh auth state (useful after admin status changes)
+ */
+export async function refreshAuthState(): Promise<void> {
+  await initAuth();
+}
+
+/**
+ * Check if user is authenticated
  */
 export function isAuthenticated(): boolean {
-  return authState.user !== null && !authState.user.isAnonymous;
+  return authState.user !== null;
 }
 
 /**
@@ -347,42 +322,13 @@ export function isAdmin(): boolean {
 }
 
 /**
- * Migrate anonymous user data to authenticated user
- */
-async function migrateAnonymousData(): Promise<void> {
-  try {
-    console.log('Migrating anonymous data to authenticated user...');
-
-    const anonymousId = localStorage.getItem('tipple-anonymous-user-id');
-    if (!anonymousId) return;
-
-    // Get anonymous user's favorites from localStorage
-    const favoritesKey = 'cocktailflow-favorites';
-    const storedFavorites = localStorage.getItem(favoritesKey);
-    const anonymousFavorites = storedFavorites ? JSON.parse(storedFavorites) : [];
-
-    // Note: In the simplified architecture, favorites will be migrated through the storage layer
-    // when the user signs in, so we don't need to do complex migration here
-
-    console.log(`Found ${anonymousFavorites.length} favorites for migration`);
-
-    // Clear anonymous user data
-    localStorage.removeItem('tipple-anonymous-user-id');
-    localStorage.removeItem('tipple-anonymous-user-created');
-
-  } catch (error) {
-    console.error('Failed to migrate anonymous data:', error);
-  }
-}
-
-/**
  * Set up Supabase auth listener
  */
 function setupAuthListener(): void {
   supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('Supabase auth event:', event);
-    
-    if (event === 'SIGNED_IN' && session?.user) {
+    console.log('Supabase auth event:', event, session?.user?.email);
+
+    if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
       const userProfile = await transformSupabaseUser(session.user);
       updateAuthState({
         user: userProfile,
@@ -390,26 +336,108 @@ function setupAuthListener(): void {
         loading: false,
         error: null
       });
-    } else if (event === 'SIGNED_OUT') {
-      const anonymousUser = await getOrCreateAnonymousUser();
+    } else if (event === 'SIGNED_OUT' || (event === 'INITIAL_SESSION' && !session)) {
       updateAuthState({
-        user: anonymousUser,
+        user: null,
         session: null,
         loading: false,
         error: null
       });
     } else if (event === 'TOKEN_REFRESHED' && session) {
-      updateAuthState({
-        session,
-        loading: false,
-        error: null
-      });
+      // When token is refreshed, we need to update the user profile too
+      // in case admin status has changed
+      if (session.user) {
+        const userProfile = await transformSupabaseUser(session.user);
+        updateAuthState({
+          user: userProfile,
+          session,
+          loading: false,
+          error: null
+        });
+      } else {
+        updateAuthState({
+          session,
+          loading: false,
+          error: null
+        });
+      }
     }
   });
 }
 
-// Initialize auth when module loads
-if (typeof window !== 'undefined') {
-  setupAuthListener();
-  initAuth();
+/**
+ * Initialize authentication system
+ * This should be called once when the app starts
+ */
+export async function initializeAuth(): Promise<void> {
+  if (typeof window !== 'undefined') {
+    setupAuthListener();
+    await initAuth();
+  }
 }
+
+/**
+ * Check if current user has admin privileges
+ * This is the unified method for checking admin status
+ */
+export async function checkAdminAccess(): Promise<{ hasAccess: boolean; user?: UserProfile; error?: string }> {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (error) {
+      return { hasAccess: false, error: error.message };
+    }
+
+    if (!session?.user) {
+      return { hasAccess: false, error: 'No authenticated user' };
+    }
+
+    const userProfile = await transformSupabaseUser(session.user);
+
+    if (!userProfile.isAdmin) {
+      return { hasAccess: false, error: 'User is not an admin' };
+    }
+
+    return { hasAccess: true, user: userProfile };
+  } catch (error) {
+    console.error('Error checking admin access:', error);
+    return { hasAccess: false, error: 'Failed to check admin access' };
+  }
+}
+
+/**
+ * Make current user an admin (for development/setup purposes)
+ * This should be used carefully and ideally only during initial setup
+ */
+export async function makeCurrentUserAdmin(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: 'No authenticated user' };
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        is_admin: true
+      });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Refresh the auth state to reflect the admin status change
+    await refreshAuthState();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error making user admin:', error);
+    return { success: false, error: 'Failed to grant admin privileges' };
+  }
+}
+
+// Remove automatic initialization - let AuthProvider handle it
+// This prevents double initialization and race conditions

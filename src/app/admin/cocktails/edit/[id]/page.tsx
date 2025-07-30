@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import CocktailForm from '@/components/CocktailForm';
-import { getAdminCocktailsSync } from '@/utils/adminDataUtils';
+import { getAdminCocktails } from '@/utils/adminDataUtils';
 import { Cocktail } from '@/types/cocktail';
 
 export default function EditCocktailPage() {
@@ -14,11 +14,17 @@ export default function EditCocktailPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadCocktail = () => {
-      const cocktails = getAdminCocktailsSync();
-      const foundCocktail = cocktails.find(c => c.id === cocktailId);
-      setCocktail(foundCocktail || null);
-      setIsLoading(false);
+    const loadCocktail = async () => {
+      try {
+        const cocktails = await getAdminCocktails();
+        const foundCocktail = cocktails.find(c => c.id === cocktailId);
+        setCocktail(foundCocktail || null);
+      } catch (error) {
+        console.error('Error loading cocktail:', error);
+        setCocktail(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     if (cocktailId) {

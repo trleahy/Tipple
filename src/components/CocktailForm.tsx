@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Cocktail, CocktailIngredient, CocktailCategory, Difficulty } from '@/types/cocktail';
-import { getAdminIngredientsSync, getAdminGlassTypesSync, addCocktail, updateCocktail, generateId } from '@/utils/adminDataUtils';
+import { getAdminIngredients, getAdminGlassTypes, addCocktail, updateCocktail, generateId } from '@/utils/adminDataUtils';
+import { useToast } from '@/contexts/ToastContext';
 
 interface CocktailFormProps {
   cocktail?: Cocktail;
@@ -12,9 +13,10 @@ interface CocktailFormProps {
 
 const CocktailForm = ({ cocktail, isEditing = false }: CocktailFormProps) => {
   const router = useRouter();
+  const { showSuccess, showError } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [availableIngredients] = useState(getAdminIngredientsSync());
-  const [availableGlassTypes] = useState(getAdminGlassTypesSync());
+  const [availableIngredients, setAvailableIngredients] = useState<any[]>([]);
+  const [availableGlassTypes, setAvailableGlassTypes] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     id: cocktail?.id || '',
@@ -44,6 +46,24 @@ const CocktailForm = ({ cocktail, isEditing = false }: CocktailFormProps) => {
       setFormData(prev => ({ ...prev, id: generateId('cocktail') }));
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [ingredients, glassTypes] = await Promise.all([
+          getAdminIngredients(),
+          getAdminGlassTypes()
+        ]);
+        setAvailableIngredients(ingredients);
+        setAvailableGlassTypes(glassTypes);
+      } catch (error) {
+        console.error('Error loading form data:', error);
+        setAvailableIngredients([]);
+        setAvailableGlassTypes([]);
+      }
+    };
+    loadData();
+  }, []);
 
   const handleInputChange = (field: string, value: string | number | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -143,6 +163,8 @@ const CocktailForm = ({ cocktail, isEditing = false }: CocktailFormProps) => {
       };
 
       let success;
+      console.log(`Attempting to ${isEditing ? 'update' : 'add'} cocktail:`, cocktailData.id, cocktailData.name);
+
       if (isEditing) {
         success = await updateCocktail(cocktail!.id, cocktailData);
       } else {
@@ -150,13 +172,22 @@ const CocktailForm = ({ cocktail, isEditing = false }: CocktailFormProps) => {
       }
 
       if (success) {
-        alert(`Cocktail ${isEditing ? 'updated' : 'created'} successfully!`);
+        console.log(`Cocktail ${isEditing ? 'updated' : 'added'} successfully`);
+        showSuccess(
+          `Cocktail ${isEditing ? 'Updated' : 'Created'}`,
+          `${cocktailData.name} has been ${isEditing ? 'updated' : 'created'} successfully!`
+        );
         router.push('/admin/cocktails');
       } else {
-        throw new Error(`Failed to ${isEditing ? 'update' : 'create'} cocktail`);
+        console.error(`Failed to ${isEditing ? 'update' : 'add'} cocktail - function returned false`);
+        throw new Error(`Failed to ${isEditing ? 'update' : 'create'} cocktail. Please check the console for details.`);
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'An error occurred');
+      console.error('Error submitting cocktail:', error);
+      showError(
+        'Error Saving Cocktail',
+        error instanceof Error ? error.message : 'An error occurred. Please check the console for details.'
+      );
     } finally {
       setIsLoading(false);
     }

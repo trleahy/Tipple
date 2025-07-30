@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { findCocktailsWithIngredients, getAllIngredients } from '@/utils/cocktailUtils';
-import { UserIngredients, IngredientCategory } from '@/types/cocktail';
+import { findCocktailsWithIngredients, getAllIngredients, getAllIngredientsAsync, refreshIngredientData } from '@/utils/cocktailUtils';
+import { UserIngredients, IngredientCategory, Ingredient } from '@/types/cocktail';
 import { performanceMonitor } from '@/utils/performanceUtils';
+import { WhatCanIMakePageSkeleton } from '@/components/SkeletonLoaders';
+import { useSmoothLoading } from '@/hooks/useMinimumLoadingTime';
+import { useDataRefresh } from '@/utils/dataRefreshUtils';
 
 // Lazy load heavy components
 const CocktailCard = dynamic(() => import('@/components/CocktailCard'), {
@@ -22,8 +25,44 @@ export default function WhatCanIMakePage() {
     others: []
   });
   const [showOnlyCanMake, setShowOnlyCanMake] = useState(false);
+  const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
+  const [isLoadingIngredients, setIsLoadingIngredients] = useState(true);
+  const { onIngredientDataChange } = useDataRefresh();
 
-  const allIngredients = useMemo(() => getAllIngredients(), []);
+  // Use smooth loading to prevent flickering
+  const { shouldShowLoading } = useSmoothLoading(isLoadingIngredients, {
+    minimumDuration: 600,
+    delayBeforeShowing: 300
+  });
+
+  // Load fresh ingredients on component mount
+  useEffect(() => {
+    const loadIngredients = async () => {
+      setIsLoadingIngredients(true);
+      try {
+        // Get fresh ingredients from Supabase only
+        const freshIngredients = await getAllIngredientsAsync();
+        setAllIngredients(freshIngredients);
+        console.log('Loaded fresh ingredients:', freshIngredients.length);
+      } catch (error) {
+        console.error('Failed to load ingredients:', error);
+        // Set empty array on error instead of using cached data
+        setAllIngredients([]);
+      } finally {
+        setIsLoadingIngredients(false);
+      }
+    };
+
+    loadIngredients();
+
+    // Listen for ingredient data changes from admin operations
+    const unsubscribe = onIngredientDataChange(() => {
+      console.log('Ingredient data changed, reloading...');
+      loadIngredients();
+    });
+
+    return unsubscribe;
+  }, [onIngredientDataChange]);
   
   const cocktailMatches = useMemo(() => {
     if (userIngredients.spirits.length === 0 &&
@@ -84,6 +123,11 @@ export default function WhatCanIMakePage() {
   const canMakeCount = cocktailMatches.filter(match => match.canMake).length;
   const partialMatchCount = cocktailMatches.filter(match => !match.canMake && match.matchPercentage > 0).length;
 
+  // Show skeleton loader to prevent flickering
+  if (shouldShowLoading) {
+    return <WhatCanIMakePageSkeleton />;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -91,6 +135,9 @@ export default function WhatCanIMakePage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-4">What Can I Make?</h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
           Select the ingredients you have available and discover what cocktails you can create!
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          {allIngredients.length} ingredients available
         </p>
       </div>
 

@@ -1,35 +1,75 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { CocktailCategory, COCKTAIL_TAGS } from '@/types/cocktail';
-import { getCocktailsByCategory, getCocktailsByTag, getAllCocktails } from '@/utils/cocktailUtils';
+import { CocktailCategory, COCKTAIL_TAGS, Cocktail } from '@/types/cocktail';
+import { getCocktailsByCategory, getCocktailsByTag, getAllCocktails, getAllCocktailsAsync } from '@/utils/cocktailUtils';
+import { getCategoryEmoji } from '@/utils/categoryUtils';
 import CocktailCard from '@/components/CocktailCard';
+import { CategoriesPageSkeleton } from '@/components/SkeletonLoaders';
+import { useSmoothLoading } from '@/hooks/useMinimumLoadingTime';
+import { useDataRefresh } from '@/utils/dataRefreshUtils';
 
 export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<CocktailCategory | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [allCocktails, setAllCocktails] = useState<Cocktail[]>([]);
+  const [isLoadingCocktails, setIsLoadingCocktails] = useState(true);
+  const { onCocktailDataChange } = useDataRefresh();
 
-  const allCocktails = getAllCocktails();
+  // Use smooth loading to prevent flickering
+  const { shouldShowLoading } = useSmoothLoading(isLoadingCocktails, {
+    minimumDuration: 600,
+    delayBeforeShowing: 300
+  });
+
+  // Load fresh cocktails on component mount
+  useEffect(() => {
+    const loadCocktails = async () => {
+      setIsLoadingCocktails(true);
+      try {
+        // Get fresh cocktails from Supabase only
+        const freshCocktails = await getAllCocktailsAsync();
+        setAllCocktails(freshCocktails);
+        console.log('Loaded fresh cocktails for categories:', freshCocktails.length);
+      } catch (error) {
+        console.error('Failed to load cocktails:', error);
+        // Set empty array on error instead of using cached data
+        setAllCocktails([]);
+      } finally {
+        setIsLoadingCocktails(false);
+      }
+    };
+
+    loadCocktails();
+
+    // Listen for cocktail data changes from admin operations
+    const unsubscribe = onCocktailDataChange(() => {
+      console.log('Cocktail data changed, reloading...');
+      loadCocktails();
+    });
+
+    return unsubscribe;
+  }, [onCocktailDataChange]);
   
-  // Get cocktails based on selection
-  const displayedCocktails = selectedCategory 
-    ? getCocktailsByCategory(selectedCategory)
+  // Get cocktails based on selection using loaded data
+  const displayedCocktails = selectedCategory
+    ? allCocktails.filter(cocktail => cocktail.category === selectedCategory)
     : selectedTag
-    ? getCocktailsByTag(selectedTag)
+    ? allCocktails.filter(cocktail => cocktail.tags.includes(selectedTag))
     : allCocktails;
 
-  // Get category stats
+  // Get category stats using loaded data
   const categoryStats = Object.values(CocktailCategory).map(category => ({
     category,
-    count: getCocktailsByCategory(category).length,
+    count: allCocktails.filter(cocktail => cocktail.category === category).length,
     emoji: getCategoryEmoji(category)
   }));
 
-  // Get tag stats (top 12 most used tags)
+  // Get tag stats (top 12 most used tags) using loaded data
   const tagStats = COCKTAIL_TAGS.map(tag => ({
     tag,
-    count: getCocktailsByTag(tag).length
+    count: allCocktails.filter(cocktail => cocktail.tags.includes(tag)).length
   })).filter(stat => stat.count > 0).slice(0, 12);
 
   function getCategoryEmoji(category: CocktailCategory): string {
@@ -64,6 +104,11 @@ export default function CategoriesPage() {
     setSelectedTag(null);
   };
 
+  // Show skeleton loader to prevent flickering
+  if (shouldShowLoading) {
+    return <CategoriesPageSkeleton />;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -71,6 +116,9 @@ export default function CategoriesPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-4">Browse by Categories & Tags</h1>
         <p className="text-xl text-gray-600">
           Explore cocktails organized by style, occasion, and characteristics
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          {allCocktails.length} cocktails available
         </p>
       </div>
 

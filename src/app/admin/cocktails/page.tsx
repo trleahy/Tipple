@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import AdminLayout from '@/components/AdminLayout';
-import { getAdminCocktailsSync, deleteCocktail } from '@/utils/adminDataUtils';
+import { getAdminCocktails, deleteCocktail } from '@/utils/adminDataUtils';
+import { useToast } from '@/contexts/ToastContext';
 import { Cocktail } from '@/types/cocktail';
 
 export default function AdminCocktailsPage() {
+  const { showSuccess, showError } = useToast();
   const [cocktails, setCocktails] = useState<Cocktail[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -16,21 +17,32 @@ export default function AdminCocktailsPage() {
     loadCocktails();
   }, []);
 
-  const loadCocktails = () => {
+  const loadCocktails = async () => {
     setIsLoading(true);
-    const allCocktails = getAdminCocktailsSync();
-    setCocktails(allCocktails);
-    setIsLoading(false);
+    try {
+      const allCocktails = await getAdminCocktails();
+      setCocktails(allCocktails);
+    } catch (error) {
+      console.error('Error loading cocktails:', error);
+      setCocktails([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDeleteCocktail = async (cocktailId: string, cocktailName: string) => {
     if (window.confirm(`Are you sure you want to delete "${cocktailName}"? This action cannot be undone.`)) {
-      const success = await deleteCocktail(cocktailId);
-      if (success) {
-        loadCocktails();
-        alert('Cocktail deleted successfully!');
-      } else {
-        alert('Error deleting cocktail. Please try again.');
+      try {
+        const success = await deleteCocktail(cocktailId);
+        if (success) {
+          await loadCocktails(); // Refresh the list
+          showSuccess('Cocktail Deleted', `${cocktailName} has been deleted successfully.`);
+        } else {
+          showError('Delete Failed', 'Error deleting cocktail. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error deleting cocktail:', error);
+        showError('Delete Error', 'An error occurred while deleting the cocktail.');
       }
     }
   };
@@ -47,18 +59,15 @@ export default function AdminCocktailsPage() {
 
   if (isLoading) {
     return (
-      <AdminLayout>
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">⏳</div>
-          <div className="text-xl font-semibold text-gray-900">Loading cocktails...</div>
-        </div>
-      </AdminLayout>
+      <div className="text-center py-12">
+        <div className="text-6xl mb-4">⏳</div>
+        <div className="text-xl font-semibold text-gray-900">Loading cocktails...</div>
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -242,6 +251,5 @@ export default function AdminCocktailsPage() {
           )}
         </div>
       </div>
-    </AdminLayout>
   );
 }

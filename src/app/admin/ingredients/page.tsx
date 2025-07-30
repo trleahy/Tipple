@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import AdminLayout from '@/components/AdminLayout';
-import { getAdminIngredientsSync, addIngredient, updateIngredient, deleteIngredient, generateId } from '@/utils/adminDataUtils';
+import { getAdminIngredients, addIngredient, updateIngredient, deleteIngredient, generateId } from '@/utils/adminDataUtils';
+import { useToast } from '@/contexts/ToastContext';
 import { Ingredient, IngredientCategory } from '@/types/cocktail';
 
 export default function AdminIngredientsPage() {
+  const { showSuccess, showError } = useToast();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -26,11 +27,17 @@ export default function AdminIngredientsPage() {
     loadIngredients();
   }, []);
 
-  const loadIngredients = () => {
+  const loadIngredients = async () => {
     setIsLoading(true);
-    const allIngredients = getAdminIngredientsSync();
-    setIngredients(allIngredients);
-    setIsLoading(false);
+    try {
+      const allIngredients = await getAdminIngredients();
+      setIngredients(allIngredients);
+    } catch (error) {
+      console.error('Error loading ingredients:', error);
+      setIngredients([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -63,7 +70,7 @@ export default function AdminIngredientsPage() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert('Ingredient name is required');
+      showError('Validation Error', 'Ingredient name is required');
       return;
     }
 
@@ -84,22 +91,38 @@ export default function AdminIngredientsPage() {
     }
 
     if (success) {
-      loadIngredients();
+      console.log(`Ingredient ${editingIngredient ? 'updated' : 'added'} successfully:`, ingredientData);
+      await loadIngredients(); // Wait for reload to complete
       resetForm();
-      alert(`Ingredient ${editingIngredient ? 'updated' : 'added'} successfully!`);
+      showSuccess(
+        `Ingredient ${editingIngredient ? 'Updated' : 'Added'}`,
+        `${ingredientData.name} has been ${editingIngredient ? 'updated' : 'added'} successfully!`
+      );
     } else {
-      alert(`Error ${editingIngredient ? 'updating' : 'adding'} ingredient. Please try again.`);
+      console.error(`Failed to ${editingIngredient ? 'update' : 'add'} ingredient:`, ingredientData);
+      showError(
+        `${editingIngredient ? 'Update' : 'Add'} Failed`,
+        `Error ${editingIngredient ? 'updating' : 'adding'} ingredient. Please try again.`
+      );
     }
   };
 
   const handleDelete = async (ingredient: Ingredient) => {
     if (window.confirm(`Are you sure you want to delete "${ingredient.name}"? This action cannot be undone.`)) {
-      const success = await deleteIngredient(ingredient.id);
-      if (success) {
-        loadIngredients();
-        alert('Ingredient deleted successfully!');
-      } else {
-        alert('Error deleting ingredient. Please try again.');
+      try {
+        console.log('Attempting to delete ingredient:', ingredient.id, ingredient.name);
+        const success = await deleteIngredient(ingredient.id);
+        if (success) {
+          console.log('Delete successful, reloading ingredients');
+          await loadIngredients();
+          showSuccess('Ingredient Deleted', `${ingredient.name} has been deleted successfully.`);
+        } else {
+          console.error('Delete failed - function returned false');
+          showError('Delete Failed', 'Error deleting ingredient. Please check the console for details and try again.');
+        }
+      } catch (error) {
+        console.error('Delete operation threw an error:', error);
+        showError('Delete Error', 'Error deleting ingredient. Please check the console for details and try again.');
       }
     }
   };
@@ -120,18 +143,15 @@ export default function AdminIngredientsPage() {
 
   if (isLoading) {
     return (
-      <AdminLayout>
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">⏳</div>
-          <div className="text-xl font-semibold text-gray-900">Loading ingredients...</div>
-        </div>
-      </AdminLayout>
+      <div className="text-center py-12">
+        <div className="text-6xl mb-4">⏳</div>
+        <div className="text-xl font-semibold text-gray-900">Loading ingredients...</div>
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -414,6 +434,5 @@ export default function AdminIngredientsPage() {
           )}
         </div>
       </div>
-    </AdminLayout>
   );
 }

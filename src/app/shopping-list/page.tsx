@@ -22,15 +22,7 @@ export default function ShoppingListPage() {
 
     loadShoppingList();
 
-    // Listen for storage changes
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'cocktailflow-shopping-list') {
-        loadShoppingList();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Note: Removed localStorage storage change listener since we're using Supabase only
   }, []);
 
   const handleRemoveItem = async (ingredientId: string) => {

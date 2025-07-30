@@ -1,13 +1,34 @@
 import { Cocktail, SearchFilters, UserIngredients, CocktailMatch, Ingredient } from '@/types/cocktail';
 import { adminDataStorage } from '@/lib/storage';
+import { smartCache } from '@/lib/smartCache';
 import { cocktails } from '@/data/cocktails';
 import { ingredients } from '@/data/ingredients';
 
-// Cache for improved performance
+// Cache for improved performance with invalidation support
 let cocktailCache: Cocktail[] | null = null;
 let ingredientCache: Ingredient[] | null = null;
 let cocktailMap: Map<string, Cocktail> | null = null;
 let ingredientMap: Map<string, Ingredient> | null = null;
+let cocktailCacheTimestamp: number = 0;
+let ingredientCacheTimestamp: number = 0;
+
+// Cache invalidation functions
+export function invalidateCocktailCache(): void {
+  cocktailCache = null;
+  cocktailMap = null;
+  cocktailCacheTimestamp = 0;
+}
+
+export function invalidateIngredientCache(): void {
+  ingredientCache = null;
+  ingredientMap = null;
+  ingredientCacheTimestamp = 0;
+}
+
+export function invalidateAllCaches(): void {
+  invalidateCocktailCache();
+  invalidateIngredientCache();
+}
 
 /**
  * Get cocktails - async version (uses hybrid storage)
@@ -24,13 +45,33 @@ export async function getCocktailDataAsync(): Promise<Cocktail[]> {
 }
 
 /**
- * Get cocktails - sync version (uses default data with caching)
+ * Get cocktails - enhanced sync version with async data integration
  */
 function getCocktailData(): Cocktail[] {
   if (!cocktailCache) {
+    // Try to get fresh data from storage first, fall back to static data
+    try {
+      // Check if we have fresh data in localStorage cache
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('cocktailflow-admin-cocktails');
+        if (stored) {
+          const storedCocktails = JSON.parse(stored);
+          if (storedCocktails.length > 0) {
+            cocktailCache = storedCocktails;
+            cocktailMap = new Map(storedCocktails.map((cocktail: Cocktail) => [cocktail.id, cocktail]));
+            cocktailCacheTimestamp = Date.now();
+            return cocktailCache;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load cocktails from localStorage cache:', error);
+    }
+
+    // Fall back to static data
     cocktailCache = cocktails;
-    // Build cocktail map for O(1) lookups
     cocktailMap = new Map(cocktails.map(cocktail => [cocktail.id, cocktail]));
+    cocktailCacheTimestamp = Date.now();
   }
   return cocktailCache;
 }
@@ -60,13 +101,33 @@ export async function getIngredientDataAsync(): Promise<Ingredient[]> {
 }
 
 /**
- * Get ingredients - sync version (uses default data with caching)
+ * Get ingredients - enhanced sync version with async data integration
  */
 function getIngredientData(): Ingredient[] {
   if (!ingredientCache) {
+    // Try to get fresh data from storage first, fall back to static data
+    try {
+      // Check if we have fresh data in localStorage cache
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('cocktailflow-admin-ingredients');
+        if (stored) {
+          const storedIngredients = JSON.parse(stored);
+          if (storedIngredients.length > 0) {
+            ingredientCache = storedIngredients;
+            ingredientMap = new Map(storedIngredients.map((ingredient: Ingredient) => [ingredient.id, ingredient]));
+            ingredientCacheTimestamp = Date.now();
+            return ingredientCache;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load ingredients from localStorage cache:', error);
+    }
+
+    // Fall back to static data
     ingredientCache = ingredients;
-    // Build ingredient map for O(1) lookups
     ingredientMap = new Map(ingredients.map(ingredient => [ingredient.id, ingredient]));
+    ingredientCacheTimestamp = Date.now();
   }
   return ingredientCache;
 }
@@ -82,10 +143,35 @@ function getIngredientMap(): Map<string, Ingredient> {
 }
 
 /**
- * Get all cocktails
+ * Get all cocktails (sync version with cache integration)
  */
 export function getAllCocktails(): Cocktail[] {
   return getCocktailData();
+}
+
+/**
+ * Get all cocktails (async version with smart caching)
+ */
+export async function getAllCocktailsAsync(): Promise<Cocktail[]> {
+  try {
+    const cocktails = await smartCache.getCocktails();
+    // Update local cache for backward compatibility
+    cocktailCache = cocktails;
+    cocktailMap = new Map(cocktails.map(cocktail => [cocktail.id, cocktail]));
+    cocktailCacheTimestamp = Date.now();
+    return cocktails;
+  } catch (error) {
+    console.warn('Failed to get cocktails from smart cache, using fallback:', error);
+    return getCocktailData();
+  }
+}
+
+/**
+ * Refresh cocktail data and invalidate cache
+ */
+export async function refreshCocktailData(): Promise<Cocktail[]> {
+  invalidateCocktailCache();
+  return await getAllCocktailsAsync();
 }
 
 /**
@@ -210,10 +296,35 @@ export function findCocktailsWithIngredients(userIngredients: UserIngredients): 
 }
 
 /**
- * Get all unique ingredients used in cocktails
+ * Get all unique ingredients used in cocktails (sync version with cache integration)
  */
 export function getAllIngredients(): Ingredient[] {
   return getIngredientData();
+}
+
+/**
+ * Get all ingredients (async version with smart caching)
+ */
+export async function getAllIngredientsAsync(): Promise<Ingredient[]> {
+  try {
+    const ingredients = await smartCache.getIngredients();
+    // Update local cache for backward compatibility
+    ingredientCache = ingredients;
+    ingredientMap = new Map(ingredients.map(ingredient => [ingredient.id, ingredient]));
+    ingredientCacheTimestamp = Date.now();
+    return ingredients;
+  } catch (error) {
+    console.warn('Failed to get ingredients from smart cache, using fallback:', error);
+    return getIngredientData();
+  }
+}
+
+/**
+ * Refresh ingredient data and invalidate cache
+ */
+export async function refreshIngredientData(): Promise<Ingredient[]> {
+  invalidateIngredientCache();
+  return await getAllIngredientsAsync();
 }
 
 /**

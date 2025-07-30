@@ -1,17 +1,67 @@
 'use client';
 
-import { useEffect } from 'react';
-import { getFeaturedCocktails, getCocktailStats, getRandomCocktails } from '@/utils/cocktailUtils';
+import { useEffect, useState } from 'react';
+import { getAllCocktailsAsync, getAllIngredientsAsync } from '@/utils/cocktailUtils';
 import { initWebVitals } from '@/utils/performanceUtils';
+import { Cocktail } from '@/types/cocktail';
 
 export default function Home() {
-  const featuredCocktails = getFeaturedCocktails();
-  const stats = getCocktailStats();
+  const [featuredCocktails, setFeaturedCocktails] = useState<Cocktail[]>([]);
+  const [stats, setStats] = useState({ totalCocktails: 0, totalIngredients: 0, categories: 0 });
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Initialize performance monitoring
+
+  // Load data asynchronously from Supabase only
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [cocktails, ingredients] = await Promise.all([
+          getAllCocktailsAsync(),
+          getAllIngredientsAsync()
+        ]);
+
+        // Get featured cocktails (classic and easy ones)
+        const featured = cocktails.filter(cocktail =>
+          cocktail.tags.includes('Classic') ||
+          cocktail.tags.includes('IBA Official') ||
+          cocktail.difficulty === 'easy'
+        ).slice(0, 6);
+
+        // Calculate stats
+        const categories = [...new Set(cocktails.map(c => c.category))].length;
+
+        setFeaturedCocktails(featured);
+        setStats({
+          totalCocktails: cocktails.length,
+          totalIngredients: ingredients.length,
+          categories
+        });
+      } catch (error) {
+        console.error('Error loading home page data:', error);
+        // Set empty states on error instead of using cached data
+        setFeaturedCocktails([]);
+        setStats({ totalCocktails: 0, totalIngredients: 0, categories: 0 });
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadData();
     initWebVitals();
   }, []);
+
+  // Show loading state to prevent hydration mismatch
+  if (!isLoaded) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">⏳</div>
+          <div className="text-xl font-semibold text-gray-900 mb-2">Loading Tipple...</div>
+          <p className="text-gray-600">Getting everything ready for you</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -104,8 +154,10 @@ export default function Home() {
           </a>
           <button
             onClick={() => {
-              const randomCocktail = getRandomCocktails(1)[0];
-              if (randomCocktail) {
+              // Generate random cocktail from loaded data
+              if (featuredCocktails.length > 0) {
+                const randomIndex = Math.floor(Math.random() * featuredCocktails.length);
+                const randomCocktail = featuredCocktails[randomIndex];
                 window.location.href = `/cocktail/${randomCocktail.id}`;
               }
             }}

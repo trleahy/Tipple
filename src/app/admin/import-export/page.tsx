@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import AdminLayout from '@/components/AdminLayout';
-import { 
-  getAdminCocktailsSync,
-  getAdminIngredientsSync,
-  getAdminGlassTypesSync,
+import { useState, useEffect } from 'react';
+import {
+  getAdminCocktails,
+  getAdminIngredients,
+  getAdminGlassTypes,
   saveAdminCocktails,
   saveAdminIngredients,
   saveAdminGlassTypes,
@@ -16,27 +15,55 @@ export default function ImportExportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [importData, setImportData] = useState('');
   const [exportType, setExportType] = useState<'all' | 'cocktails' | 'ingredients' | 'glass-types'>('all');
+  const [stats, setStats] = useState({ cocktails: 0, ingredients: 0, glassTypes: 0 });
 
-  const handleExport = () => {
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const [cocktails, ingredients, glassTypes] = await Promise.all([
+          getAdminCocktails(),
+          getAdminIngredients(),
+          getAdminGlassTypes()
+        ]);
+        setStats({
+          cocktails: cocktails.length,
+          ingredients: ingredients.length,
+          glassTypes: glassTypes.length
+        });
+      } catch (error) {
+        console.error('Error loading stats:', error);
+        setStats({ cocktails: 0, ingredients: 0, glassTypes: 0 });
+      }
+    };
+    loadStats();
+  }, []);
+
+  const handleExport = async () => {
     try {
+      setIsLoading(true);
       let data: Record<string, unknown> = {};
-      
+
       switch (exportType) {
         case 'cocktails':
-          data = { cocktails: getAdminCocktailsSync() };
+          data = { cocktails: await getAdminCocktails() };
           break;
         case 'ingredients':
-          data = { ingredients: getAdminIngredientsSync() };
+          data = { ingredients: await getAdminIngredients() };
           break;
         case 'glass-types':
-          data = { glassTypes: getAdminGlassTypesSync() };
+          data = { glassTypes: await getAdminGlassTypes() };
           break;
         case 'all':
         default:
+          const [cocktails, ingredients, glassTypes] = await Promise.all([
+            getAdminCocktails(),
+            getAdminIngredients(),
+            getAdminGlassTypes()
+          ]);
           data = {
-            cocktails: getAdminCocktailsSync(),
-            ingredients: getAdminIngredientsSync(),
-            glassTypes: getAdminGlassTypesSync(),
+            cocktails,
+            ingredients,
+            glassTypes,
             exportDate: new Date().toISOString(),
             version: '1.0.0'
           };
@@ -54,11 +81,13 @@ export default function ImportExportPage() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       alert('Data exported successfully!');
     } catch (error) {
       console.error('Export error:', error);
       alert('Error exporting data. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -165,8 +194,7 @@ export default function ImportExportPage() {
   };
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Import & Export Data</h1>
@@ -265,9 +293,9 @@ export default function ImportExportPage() {
               <div className="border border-gray-200 rounded-lg p-4">
                 <h3 className="font-medium text-gray-900 mb-2">Current Data</h3>
                 <div className="space-y-1 text-sm text-gray-600">
-                  <div>Cocktails: {getAdminCocktailsSync().length}</div>
-                  <div>Ingredients: {getAdminIngredientsSync().length}</div>
-                  <div>Glass Types: {getAdminGlassTypesSync().length}</div>
+                  <div>Cocktails: {stats.cocktails}</div>
+                  <div>Ingredients: {stats.ingredients}</div>
+                  <div>Glass Types: {stats.glassTypes}</div>
                 </div>
               </div>
               
@@ -339,6 +367,5 @@ export default function ImportExportPage() {
           </div>
         </div>
       </div>
-    </AdminLayout>
   );
 }

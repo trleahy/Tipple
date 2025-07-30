@@ -3,6 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import MigrationHandler from "@/components/MigrationHandler";
+import AuthProvider from "@/components/AuthProvider";
+import DataRefreshProvider from "@/components/DataRefreshProvider";
+import CacheManager from "@/components/CacheManager";
+import ToastNotification from "@/components/ToastNotification";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -81,11 +85,17 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <MigrationHandler />
-        <Navigation />
-        <main className="min-h-screen">
-          {children}
-        </main>
+        <AuthProvider>
+          <DataRefreshProvider>
+            <MigrationHandler />
+            <Navigation />
+            <main className="min-h-screen">
+              {children}
+            </main>
+            <CacheManager />
+            <ToastNotification />
+          </DataRefreshProvider>
+        </AuthProvider>
       </body>
     </html>
   );

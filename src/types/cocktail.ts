@@ -23,7 +23,7 @@ export interface Cocktail {
   instructions: string[];
   ingredients: CocktailIngredient[];
   glassType: GlassType;
-  category: CocktailCategory;
+  category: CocktailCategory | Category; // Support both old enum and new Category interface
   tags: string[];
   difficulty: Difficulty;
   prepTime: number; // in minutes
@@ -41,6 +41,14 @@ export interface GlassType {
   description: string;
   iconUrl?: string;
   capacity?: string; // e.g., "8-10 oz"
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description: string;
+  color?: string; // Hex color for UI theming
+  iconEmoji?: string; // Emoji icon for display
 }
 
 export enum IngredientCategory {
@@ -76,7 +84,7 @@ export enum Difficulty {
 
 export interface SearchFilters {
   query?: string;
-  categories?: CocktailCategory[];
+  categories?: (CocktailCategory | string)[]; // Support both enum values and category IDs
   tags?: string[];
   ingredients?: string[];
   glassTypes?: string[];

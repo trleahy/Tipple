@@ -28,16 +28,7 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     loadFavorites();
-
-    // Listen for storage changes (when favorites are updated in other tabs)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'cocktailflow-favorites') {
-        loadFavorites();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Note: Removed localStorage storage change listener since we're using Supabase only
   }, [loadFavorites]);
 
   const handleClearAll = useCallback(async () => {

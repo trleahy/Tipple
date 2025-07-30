@@ -1,19 +1,102 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { searchCocktails } from '@/utils/cocktailUtils';
-import { SearchFilters } from '@/types/cocktail';
+import { useState, useMemo, useEffect } from 'react';
+import { searchCocktails, getAllCocktailsAsync, getAllCocktails } from '@/utils/cocktailUtils';
+import { SearchFilters, Cocktail } from '@/types/cocktail';
 import CocktailCard from '@/components/CocktailCard';
 import SearchBar from '@/components/SearchBar';
 import FilterPanel from '@/components/FilterPanel';
+import { BrowsePageSkeleton } from '@/components/SkeletonLoaders';
+import { useSmoothLoading } from '@/hooks/useMinimumLoadingTime';
+import { useDataRefresh } from '@/utils/dataRefreshUtils';
 
 export default function BrowsePage() {
   const [filters, setFilters] = useState<SearchFilters>({});
   const [showFilters, setShowFilters] = useState(false);
+  const [allCocktails, setAllCocktails] = useState<Cocktail[]>([]);
+  const [isLoadingCocktails, setIsLoadingCocktails] = useState(true);
+  const { onCocktailDataChange } = useDataRefresh();
+
+  // Use smooth loading to prevent flickering
+  const { shouldShowLoading } = useSmoothLoading(isLoadingCocktails, {
+    minimumDuration: 600,
+    delayBeforeShowing: 300
+  });
+
+  // Load fresh cocktails on component mount
+  useEffect(() => {
+    const loadCocktails = async () => {
+      setIsLoadingCocktails(true);
+      try {
+        // Get fresh cocktails from Supabase only
+        const freshCocktails = await getAllCocktailsAsync();
+        setAllCocktails(freshCocktails);
+        console.log('Loaded fresh cocktails for browse:', freshCocktails.length);
+      } catch (error) {
+        console.error('Failed to load cocktails:', error);
+        // Set empty array on error instead of using cached data
+        setAllCocktails([]);
+      } finally {
+        setIsLoadingCocktails(false);
+      }
+    };
+
+    loadCocktails();
+
+    // Listen for cocktail data changes from admin operations
+    const unsubscribe = onCocktailDataChange(() => {
+      console.log('Cocktail data changed, reloading...');
+      loadCocktails();
+    });
+
+    return unsubscribe;
+  }, [onCocktailDataChange]);
 
   const filteredCocktails = useMemo(() => {
-    return searchCocktails(filters);
-  }, [filters]);
+    if (allCocktails.length === 0) return [];
+
+    // Apply filters to the loaded cocktails
+    let filtered = allCocktails;
+
+    // Filter by search query (name or description)
+    if (filters.query) {
+      const query = filters.query.toLowerCase();
+      filtered = filtered.filter(cocktail =>
+        cocktail.name.toLowerCase().includes(query) ||
+        cocktail.description.toLowerCase().includes(query) ||
+        cocktail.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+
+    // Filter by categories
+    if (filters.categories && filters.categories.length > 0) {
+      filtered = filtered.filter(cocktail =>
+        filters.categories!.includes(cocktail.category)
+      );
+    }
+
+    // Filter by difficulty
+    if (filters.difficulty && filters.difficulty.length > 0) {
+      filtered = filtered.filter(cocktail =>
+        filters.difficulty!.includes(cocktail.difficulty)
+      );
+    }
+
+    // Filter by prep time
+    if (filters.maxPrepTime) {
+      filtered = filtered.filter(cocktail => cocktail.prepTime <= filters.maxPrepTime!);
+    }
+
+    // Filter by alcoholic/non-alcoholic
+    if (filters.alcoholic !== undefined) {
+      filtered = filtered.filter(cocktail => {
+        const hasAlcohol = (cocktail.ingredients || []).some(ci => ci.ingredient.alcoholic);
+        return filters.alcoholic ? hasAlcohol : !hasAlcohol;
+      });
+    }
+
+    return filtered;
+  }, [allCocktails, filters]);
 
   const handleSearchChange = (query: string) => {
     setFilters(prev => ({ ...prev, query }));
@@ -27,13 +110,21 @@ export default function BrowsePage() {
     setFilters({});
   };
 
+  // Show skeleton loader to prevent flickering
+  if (shouldShowLoading) {
+    return <BrowsePageSkeleton />;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">Browse Cocktails</h1>
         <p className="text-gray-600">
-          Discover amazing cocktail recipes from our collection of {filteredCocktails.length} drinks.
+          Discover amazing cocktail recipes from our collection of {allCocktails.length} drinks.
+          {filteredCocktails.length !== allCocktails.length && (
+            <span> ({filteredCocktails.length} matching your filters)</span>
+          )}
         </p>
       </div>
 
