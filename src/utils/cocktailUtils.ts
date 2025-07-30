@@ -9,20 +9,19 @@ let cocktailCache: Cocktail[] | null = null;
 let ingredientCache: Ingredient[] | null = null;
 let cocktailMap: Map<string, Cocktail> | null = null;
 let ingredientMap: Map<string, Ingredient> | null = null;
-let cocktailCacheTimestamp: number = 0;
-let ingredientCacheTimestamp: number = 0;
+// Removed unused timestamp variables
 
 // Cache invalidation functions
 export function invalidateCocktailCache(): void {
   cocktailCache = null;
   cocktailMap = null;
-  cocktailCacheTimestamp = 0;
+  // cocktailCacheTimestamp = 0; // Removed unused variable
 }
 
 export function invalidateIngredientCache(): void {
   ingredientCache = null;
   ingredientMap = null;
-  ingredientCacheTimestamp = 0;
+  // ingredientCacheTimestamp = 0; // Removed unused variable
 }
 
 export function invalidateAllCaches(): void {
@@ -115,7 +114,7 @@ function getIngredientData(): Ingredient[] {
           if (storedIngredients.length > 0) {
             ingredientCache = storedIngredients;
             ingredientMap = new Map(storedIngredients.map((ingredient: Ingredient) => [ingredient.id, ingredient]));
-            ingredientCacheTimestamp = Date.now();
+            // ingredientCacheTimestamp = Date.now(); // Removed unused variable
             return ingredientCache;
           }
         }
@@ -127,7 +126,7 @@ function getIngredientData(): Ingredient[] {
     // Fall back to static data
     ingredientCache = ingredients;
     ingredientMap = new Map(ingredients.map(ingredient => [ingredient.id, ingredient]));
-    ingredientCacheTimestamp = Date.now();
+    // ingredientCacheTimestamp = Date.now(); // Removed unused variable
   }
   return ingredientCache;
 }
@@ -311,7 +310,7 @@ export async function getAllIngredientsAsync(): Promise<Ingredient[]> {
     // Update local cache for backward compatibility
     ingredientCache = ingredients;
     ingredientMap = new Map(ingredients.map(ingredient => [ingredient.id, ingredient]));
-    ingredientCacheTimestamp = Date.now();
+    // ingredientCacheTimestamp = Date.now(); // Removed unused variable
     return ingredients;
   } catch (error) {
     console.warn('Failed to get ingredients from smart cache, using fallback:', error);

@@ -50,7 +50,7 @@ class LocalDatabase {
         try {
           // Try to delete old database
           const deleteRequest = indexedDB.deleteDatabase(oldDbName);
-          await new Promise<void>((resolve, reject) => {
+          await new Promise<void>((resolve) => {
             deleteRequest.onsuccess = () => {
               console.log(`Cleaned up old database: ${oldDbName}`);
               resolve();
@@ -372,7 +372,8 @@ class LocalDatabase {
         
         stats[storeName] = {
           count: data.length,
-          lastUpdated: metadata?.lastUpdated || null
+          lastUpdated: metadata?.lastUpdated || null,
+          isFresh
         };
       }
     } catch (error) {

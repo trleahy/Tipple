@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { searchCocktails, getAllCocktailsAsync, getAllCocktails } from '@/utils/cocktailUtils';
+import { getAllCocktailsAsync } from '@/utils/cocktailUtils';
 import { SearchFilters, Cocktail } from '@/types/cocktail';
 import CocktailCard from '@/components/CocktailCard';
 import SearchBar from '@/components/SearchBar';

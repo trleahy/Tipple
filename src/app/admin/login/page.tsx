@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { checkAdminAccess, makeCurrentUserAdmin } from '@/lib/auth';
@@ -13,11 +13,7 @@ export default function AdminAccessPage() {
   const router = useRouter();
   const authState = useAuth();
 
-  useEffect(() => {
-    checkAccess();
-  }, [authState.loading, authState.user]);
-
-  const checkAccess = async () => {
+  const checkAccess = useCallback(async () => {
     // Wait for auth to finish loading
     if (authState.loading) {
       return;
@@ -45,7 +41,11 @@ export default function AdminAccessPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [authState.loading, authState.user, router]);
+
+  useEffect(() => {
+    checkAccess();
+  }, [checkAccess]);
 
   const handleMakeAdmin = async () => {
     setIsLoading(true);

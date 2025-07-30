@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CocktailCategory, COCKTAIL_TAGS, Cocktail } from '@/types/cocktail';
-import { getCocktailsByCategory, getCocktailsByTag, getAllCocktails, getAllCocktailsAsync } from '@/utils/cocktailUtils';
-import { getCategoryEmoji } from '@/utils/categoryUtils';
+import { getAllCocktailsAsync } from '@/utils/cocktailUtils';
+// Removed unused imports: getCocktailsByCategory, getCocktailsByTag, getAllCocktails, getCategoryEmoji
 import CocktailCard from '@/components/CocktailCard';
 import { CategoriesPageSkeleton } from '@/components/SkeletonLoaders';
 import { useSmoothLoading } from '@/hooks/useMinimumLoadingTime';

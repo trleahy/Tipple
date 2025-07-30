@@ -128,7 +128,7 @@ export function useSmoothLoading(
         clearTimeout(hideLoadingTimeoutRef.current);
       }
     };
-  }, [isActuallyLoading, delayBeforeShowing, minimumDuration]);
+  }, [isActuallyLoading, delayBeforeShowing, minimumDuration, shouldShowLoading]);
 
   return {
     shouldShowLoading,

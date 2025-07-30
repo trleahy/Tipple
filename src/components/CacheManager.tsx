@@ -222,7 +222,7 @@ export default function CacheManager() {
           <div className="mt-6 p-3 bg-blue-50 rounded-lg">
             <div className="text-sm text-blue-800">
               <strong>Smart Caching:</strong> Data is automatically cached locally and refreshed every 10 minutes. 
-              Use "Refresh Data" to manually update all data from the server.
+              Use &quot;Refresh Data&quot; to manually update all data from the server.
             </div>
           </div>
         </div>

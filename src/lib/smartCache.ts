@@ -17,7 +17,7 @@ interface Category {
 
 class SmartCache {
   private isRefreshing = false;
-  private refreshPromises: Map<string, Promise<any>> = new Map();
+  private refreshPromises: Map<string, Promise<unknown>> = new Map();
 
   /**
    * Get cocktails with smart caching

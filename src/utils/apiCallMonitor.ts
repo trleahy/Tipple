@@ -165,5 +165,5 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 
 // Expose to window for debugging
 if (typeof window !== 'undefined') {
-  (window as any).apiCallMonitor = apiCallMonitor;
+  (window as typeof window & { apiCallMonitor: typeof apiCallMonitor }).apiCallMonitor = apiCallMonitor;
 }

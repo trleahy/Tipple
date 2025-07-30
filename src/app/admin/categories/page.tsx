@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Category } from '@/types/cocktail';
 import { getAdminCategories, addCategory, updateCategory, deleteCategory, generateId } from '@/utils/adminDataUtils';
 import { useToast } from '@/contexts/ToastContext';
@@ -23,9 +23,9 @@ export default function AdminCategoriesPage() {
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     setIsLoading(true);
     try {
       console.log('Loading categories...');
@@ -40,7 +40,7 @@ export default function AdminCategoriesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showError]);
 
   const resetForm = () => {
     setFormData({

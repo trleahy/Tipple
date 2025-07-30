@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useToast } from '@/contexts/ToastContext';
 import { GlassType } from '@/types/cocktail';
 import { getAdminGlassTypes, addGlassType, updateGlassType, deleteGlassType, generateId } from '@/utils/adminDataUtils';
@@ -23,9 +24,9 @@ export default function AdminGlassTypesPage() {
 
   useEffect(() => {
     loadGlassTypes();
-  }, []);
+  }, [loadGlassTypes]);
 
-  const loadGlassTypes = async () => {
+  const loadGlassTypes = useCallback(async () => {
     setIsLoading(true);
     try {
       console.log('Loading glass types...');
@@ -40,7 +41,7 @@ export default function AdminGlassTypesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showError]);
 
   const resetForm = () => {
     setFormData({
@@ -270,9 +271,11 @@ export default function AdminGlassTypesPage() {
                     <div className="flex-1">
                       <div className="flex items-center space-x-4">
                         {glassType.iconUrl && (
-                          <img
+                          <Image
                             src={glassType.iconUrl}
                             alt={glassType.name}
+                            width={48}
+                            height={48}
                             className="w-12 h-12 object-cover rounded-lg"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';

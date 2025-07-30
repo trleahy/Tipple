@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Cocktail, CocktailIngredient, CocktailCategory, Difficulty } from '@/types/cocktail';
+import { Cocktail, CocktailIngredient, CocktailCategory, Difficulty, Ingredient, GlassType } from '@/types/cocktail';
 import { getAdminIngredients, getAdminGlassTypes, addCocktail, updateCocktail, generateId } from '@/utils/adminDataUtils';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -15,8 +15,8 @@ const CocktailForm = ({ cocktail, isEditing = false }: CocktailFormProps) => {
   const router = useRouter();
   const { showSuccess, showError } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [availableIngredients, setAvailableIngredients] = useState<any[]>([]);
-  const [availableGlassTypes, setAvailableGlassTypes] = useState<any[]>([]);
+  const [availableIngredients, setAvailableIngredients] = useState<Ingredient[]>([]);
+  const [availableGlassTypes, setAvailableGlassTypes] = useState<GlassType[]>([]);
 
   const [formData, setFormData] = useState({
     id: cocktail?.id || '',

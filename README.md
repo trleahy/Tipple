@@ -1,6 +1,6 @@
 # Cocktail Flow - Supabase Integration
 
-A Next.js cocktail recipe application with Supabase backend integration and localStorage fallback.
+A Next.js cocktail recipe application.
 
 ## Features
 
@@ -27,8 +27,8 @@ This application uses Supabase as the primary database with localStorage as a ba
 Create a `.env.local` file in the root directory:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://uqbydhyrplrdhaqnkazc.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYnlkaHlycGxyZGhhcW5rYXpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3MTQyMjYsImV4cCI6MjA2NzI5MDIyNn0.GYf2mqHxAFP8jIKAqUOF2jg4_tmqmj7oDqtAiaGGiV4
+NEXT_PUBLIC_SUPABASE_URL=url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=key
 ```
 
 ### 2. Database Setup
@@ -55,13 +55,6 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
-
-### 5. Test the Integration
-
-Visit [http://localhost:3000/test-integration](http://localhost:3000/test-integration) to run integration tests and verify that:
-- Supabase connection is working
-- Data storage and retrieval functions correctly
-- localStorage fallback works when offline
 
 ## Architecture
 

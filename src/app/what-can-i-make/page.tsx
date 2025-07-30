@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { findCocktailsWithIngredients, getAllIngredients, getAllIngredientsAsync, refreshIngredientData } from '@/utils/cocktailUtils';
+import { findCocktailsWithIngredients, getAllIngredientsAsync } from '@/utils/cocktailUtils';
 import { UserIngredients, IngredientCategory, Ingredient } from '@/types/cocktail';
 import { performanceMonitor } from '@/utils/performanceUtils';
 import { WhatCanIMakePageSkeleton } from '@/components/SkeletonLoaders';
