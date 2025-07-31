@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { getCocktailStats } from '@/utils/cocktailUtils';
 import { getFavoriteIdsSync } from '@/utils/favoritesUtils';
 import { getShoppingListCountSync } from '@/utils/shoppingListUtils';
-import { getAdminCocktails, getAdminIngredients } from '@/utils/adminDataUtils';
+import { getAdminCocktails, getAdminIngredients, getAdminCategories } from '@/utils/adminDataUtils';
 import { CocktailCategory } from '@/types/cocktail';
 
 export default function AdminDashboard() {
@@ -26,20 +26,21 @@ export default function AdminDashboard() {
         // Get real-time data from Supabase
         const cocktails = await getAdminCocktails();
         const ingredients = await getAdminIngredients();
+        const categories = await getAdminCategories();
         const favorites = getFavoriteIdsSync();
         const shoppingListItems = getShoppingListCountSync();
-        const categories = Object.values(CocktailCategory).length;
 
         setStats({
           totalCocktails: cocktails.length,
           totalIngredients: ingredients.length,
-          totalCategories: categories,
+          totalCategories: categories.length,
           totalFavorites: favorites.length,
           totalShoppingLists: shoppingListItems,
           recentActivity: [
             'System initialized',
             `${cocktails.length} cocktails loaded from database`,
             `${ingredients.length} ingredients available`,
+            `${categories.length} categories available`,
             'Admin panel accessed',
             `Last updated: ${new Date().toLocaleTimeString()}`
           ]

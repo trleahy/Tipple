@@ -32,6 +32,7 @@ let authState: AuthState = {
 };
 
 let authListeners: ((state: AuthState) => void)[] = [];
+let isAuthListenerSetup = false;
 
 /**
  * Subscribe to auth state changes
@@ -61,23 +62,32 @@ function updateAuthState(updates: Partial<AuthState>): void {
  */
 async function transformSupabaseUser(user: User): Promise<UserProfile> {
   try {
-    // Try to get user profile from Supabase
-    let { data: profile } = await supabase
+    // Add timeout to prevent hanging on network issues
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('User profile fetch timeout')), 5000);
+    });
+
+    // Try to get user profile from Supabase with timeout
+    const profilePromise = supabase
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
       .single();
 
+    let { data: profile } = await Promise.race([profilePromise, timeoutPromise]);
+
     // If user doesn't exist in users table, create them
     if (!profile) {
       console.log('Creating user record for:', user.id);
-      const { error: insertError } = await supabase
+      const insertPromise = supabase
         .from('users')
         .insert({
           id: user.id,
           email: user.email,
           is_admin: false
         });
+
+      const { error: insertError } = await Promise.race([insertPromise, timeoutPromise]);
 
       if (!insertError) {
         profile = { is_admin: false };
@@ -95,10 +105,11 @@ async function transformSupabaseUser(user: User): Promise<UserProfile> {
     };
   } catch (error) {
     console.warn('Failed to get user profile from Supabase:', error);
+    // Return a safe default profile for offline/network issues
     return {
       id: user.id,
       email: user.email,
-      isAdmin: false,
+      isAdmin: false, // Default to non-admin for safety
       createdAt: user.created_at,
       lastLoginAt: new Date().toISOString()
     };
@@ -322,9 +333,59 @@ export function isAdmin(): boolean {
 }
 
 /**
+ * Validate admin access with comprehensive error handling
+ */
+export async function validateAdminAccess(): Promise<{ hasAccess: boolean; error?: string; user?: UserProfile }> {
+  try {
+    // Check if we have a current user
+    if (!authState.user || !authState.session) {
+      return { hasAccess: false, error: 'No authenticated user' };
+    }
+
+    // Check if user is admin
+    if (!authState.user.isAdmin) {
+      return { hasAccess: false, error: 'User is not an admin', user: authState.user };
+    }
+
+    // Verify session is still valid by checking with Supabase
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        // Session is invalid, clear auth state
+        updateAuthState({
+          user: null,
+          session: null,
+          loading: false,
+          error: 'Session expired'
+        });
+        return { hasAccess: false, error: 'Session expired' };
+      }
+
+      // Session is valid and user is admin
+      return { hasAccess: true, user: authState.user };
+    } catch (sessionError) {
+      console.error('Session validation failed:', sessionError);
+      return { hasAccess: false, error: 'Unable to validate session' };
+    }
+  } catch (error) {
+    console.error('Admin access validation failed:', error);
+    return { hasAccess: false, error: 'Authentication system error' };
+  }
+}
+
+/**
  * Set up Supabase auth listener
  */
 function setupAuthListener(): void {
+  if (isAuthListenerSetup) {
+    console.log('Auth listener already set up, skipping');
+    return;
+  }
+
+  console.log('Setting up Supabase auth listener');
+  isAuthListenerSetup = true;
+
   supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('Supabase auth event:', event, session?.user?.email);
 

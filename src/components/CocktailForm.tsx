@@ -249,7 +249,7 @@ const CocktailForm = ({ cocktail, isEditing = false }: CocktailFormProps) => {
               Category *
             </label>
             <select
-              value={formData.category}
+              value={typeof formData.category === 'string' ? formData.category : formData.category.id}
               onChange={(e) => handleInputChange('category', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required

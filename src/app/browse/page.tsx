@@ -70,9 +70,10 @@ export default function BrowsePage() {
 
     // Filter by categories
     if (filters.categories && filters.categories.length > 0) {
-      filtered = filtered.filter(cocktail =>
-        filters.categories!.includes(cocktail.category)
-      );
+      filtered = filtered.filter(cocktail => {
+        const categoryValue = typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id;
+        return filters.categories!.includes(categoryValue);
+      });
     }
 
     // Filter by difficulty

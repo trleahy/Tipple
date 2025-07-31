@@ -29,9 +29,9 @@ interface CacheMetadata {
 interface Category {
   id: string;
   name: string;
-  color: string;
-  emoji: string;
   description: string;
+  color?: string;
+  iconEmoji?: string;
 }
 
 class LocalDatabase {
@@ -348,8 +348,8 @@ class LocalDatabase {
   /**
    * Get cache statistics
    */
-  async getCacheStats(): Promise<{ [key: string]: { count: number; lastUpdated: number | null } }> {
-    const stats: { [key: string]: { count: number; lastUpdated: number | null } } = {};
+  async getCacheStats(): Promise<{ [key: string]: { count: number; lastUpdated: number | null; isFresh: boolean } }> {
+    const stats: { [key: string]: { count: number; lastUpdated: number | null; isFresh: boolean } } = {};
     
     try {
       await this.init();

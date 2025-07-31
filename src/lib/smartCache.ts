@@ -5,17 +5,10 @@
 
 import { localDatabase } from './localDatabase';
 import { adminDataStorage } from './storage';
-import { Cocktail, Ingredient, GlassType } from '@/types/cocktail';
+import { Cocktail, Ingredient, GlassType, Category } from '@/types/cocktail';
 import { cocktails as staticCocktails } from '@/data/cocktails';
 import { ingredients as staticIngredients, glassTypes as staticGlassTypes } from '@/data/ingredients';
-
-interface Category {
-  id: string;
-  name: string;
-  color: string;
-  emoji: string;
-  description: string;
-}
+import { initialCategories as staticCategories } from '@/data/categories';
 
 class SmartCache {
   private isRefreshing = false;
@@ -158,24 +151,38 @@ class SmartCache {
   async getCategories(): Promise<Category[]> {
     try {
       const { data: cachedCategories, isFresh } = await localDatabase.getCategories();
-      
+
       if (isFresh && cachedCategories.length > 0) {
         console.log(`Using fresh cached categories: ${cachedCategories.length} items`);
         return cachedCategories;
       }
-      
+
       if (cachedCategories.length > 0) {
         console.log(`Using stale cached categories: ${cachedCategories.length} items, refreshing in background`);
         this.refreshCategoriesInBackground();
         return cachedCategories;
       }
-      
+
       console.log('No cached categories found, fetching from Supabase');
       return await this.fetchAndCacheCategories();
-      
+
     } catch (error) {
       console.error('Error in smart cache getCategories:', error);
-      return [];
+
+      // Fallback to any cached data we might have
+      try {
+        const { data: fallbackData } = await localDatabase.getCategories();
+        if (fallbackData.length > 0) {
+          console.log('Using fallback cached categories');
+          return fallbackData;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback categories cache also failed:', fallbackError);
+      }
+
+      // Final fallback to static data
+      console.log('Using static categories as final fallback');
+      return staticCategories;
     }
   }
 
@@ -187,7 +194,7 @@ class SmartCache {
     
     // Prevent multiple simultaneous requests
     if (this.refreshPromises.has(cacheKey)) {
-      return await this.refreshPromises.get(cacheKey)!;
+      return await this.refreshPromises.get(cacheKey)! as Cocktail[];
     }
     
     const promise = this.doFetchAndCacheCocktails();
@@ -230,7 +237,7 @@ class SmartCache {
     const cacheKey = 'ingredients';
     
     if (this.refreshPromises.has(cacheKey)) {
-      return await this.refreshPromises.get(cacheKey)!;
+      return await this.refreshPromises.get(cacheKey)! as Ingredient[];
     }
     
     const promise = this.doFetchAndCacheIngredients();
@@ -302,7 +309,17 @@ class SmartCache {
       return categories;
     } catch (error) {
       console.error('Failed to fetch categories from Supabase:', error);
-      throw error;
+
+      // Fallback to static data
+      console.log('Falling back to static category data');
+      try {
+        await localDatabase.saveCategories(staticCategories);
+        console.log(`Using static category data: ${staticCategories.length} items`);
+        return staticCategories;
+      } catch (cacheError) {
+        console.error('Failed to cache static categories:', cacheError);
+        return staticCategories;
+      }
     }
   }
 

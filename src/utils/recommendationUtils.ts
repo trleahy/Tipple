@@ -132,7 +132,7 @@ export function getTrendingCocktails(limit: number = 6): Cocktail[] {
       });
       
       // Trending categories
-      if (trendingCategories.includes(cocktail.category)) {
+      if (trendingCategories.includes(typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id)) {
         score += 2;
       }
       
@@ -185,7 +185,7 @@ export function getSeasonalCocktails(season: 'spring' | 'summer' | 'fall' | 'win
       });
       
       // Seasonal categories
-      if (relevantCategories.includes(cocktail.category)) {
+      if (relevantCategories.includes(typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id)) {
         score += 3;
       }
       

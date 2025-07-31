@@ -22,10 +22,6 @@ export default function AdminGlassTypesPage() {
     iconUrl: ''
   });
 
-  useEffect(() => {
-    loadGlassTypes();
-  }, [loadGlassTypes]);
-
   const loadGlassTypes = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -42,6 +38,10 @@ export default function AdminGlassTypesPage() {
       setIsLoading(false);
     }
   }, [showError]);
+
+  useEffect(() => {
+    loadGlassTypes();
+  }, [loadGlassTypes]);
 
   const resetForm = () => {
     setFormData({

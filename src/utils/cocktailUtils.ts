@@ -59,7 +59,7 @@ function getCocktailData(): Cocktail[] {
             cocktailCache = storedCocktails;
             cocktailMap = new Map(storedCocktails.map((cocktail: Cocktail) => [cocktail.id, cocktail]));
 
-            return cocktailCache;
+            return cocktailCache || [];
           }
         }
       }
@@ -115,7 +115,7 @@ function getIngredientData(): Ingredient[] {
             ingredientCache = storedIngredients;
             ingredientMap = new Map(storedIngredients.map((ingredient: Ingredient) => [ingredient.id, ingredient]));
             // ingredientCacheTimestamp = Date.now(); // Removed unused variable
-            return ingredientCache;
+            return ingredientCache || [];
           }
         }
       }
@@ -198,9 +198,10 @@ export function searchCocktails(filters: SearchFilters): Cocktail[] {
 
   // Filter by categories
   if (filters.categories && filters.categories.length > 0) {
-    filteredCocktails = filteredCocktails.filter(cocktail =>
-      filters.categories!.includes(cocktail.category)
-    );
+    filteredCocktails = filteredCocktails.filter(cocktail => {
+      const categoryValue = typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id;
+      return filters.categories!.includes(categoryValue);
+    });
   }
 
   // Filter by tags

@@ -124,7 +124,7 @@ export default function CocktailDetailPage() {
       {/* Header */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
         <div className="relative h-64 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-          <span className="text-8xl">{getCategoryEmoji(cocktail.category)}</span>
+          <span className="text-8xl">{getCategoryEmoji(typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id)}</span>
           
           {/* Favorite Button */}
           <button

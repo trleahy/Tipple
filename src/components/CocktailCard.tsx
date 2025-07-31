@@ -79,8 +79,8 @@ const CocktailCard = memo(({ cocktail, showMatchPercentage, missingIngredients }
     <Link href={`/cocktail/${cocktail.id}`}>
       <div className="cocktail-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer glass-shimmer">
         {/* Image/Icon Section */}
-        <div className={`relative h-48 bg-gradient-to-br ${getCategoryGradient(cocktail.category)} flex items-center justify-center`}>
-          <span className="text-6xl float-animation">{getCategoryEmoji(cocktail.category)}</span>
+        <div className={`relative h-48 bg-gradient-to-br ${getCategoryGradient(typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id)} flex items-center justify-center`}>
+          <span className="text-6xl float-animation">{getCategoryEmoji(typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id)}</span>
           
           {/* Favorite Button */}
           <button
