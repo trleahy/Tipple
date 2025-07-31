@@ -21,10 +21,6 @@ export default function AdminCategoriesPage() {
     iconEmoji: ''
   });
 
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
   const loadCategories = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -41,6 +37,10 @@ export default function AdminCategoriesPage() {
       setIsLoading(false);
     }
   }, [showError]);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const resetForm = () => {
     setFormData({

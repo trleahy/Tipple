@@ -51,11 +51,14 @@ export default function AdminCocktailsPage() {
   const filteredCocktails = cocktails.filter(cocktail => {
     const matchesSearch = cocktail.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          cocktail.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !selectedCategory || cocktail.category === selectedCategory;
+    const categoryValue = typeof cocktail.category === 'string' ? cocktail.category : cocktail.category.id;
+    const matchesCategory = !selectedCategory || categoryValue === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const categories = [...new Set(cocktails.map(c => c.category))];
+  const categories = [...new Set(cocktails.map(c =>
+    typeof c.category === 'string' ? c.category : c.category.id
+  ))];
 
   if (isLoading) {
     return (
@@ -204,7 +207,10 @@ export default function AdminCocktailsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                          {cocktail.category.replace('_', ' ')}
+                          {typeof cocktail.category === 'string'
+                            ? cocktail.category.replace('_', ' ')
+                            : cocktail.category.name
+                          }
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

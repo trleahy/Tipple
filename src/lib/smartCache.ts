@@ -6,6 +6,8 @@
 import { localDatabase } from './localDatabase';
 import { adminDataStorage } from './storage';
 import { Cocktail, Ingredient, GlassType } from '@/types/cocktail';
+import { cocktails as staticCocktails } from '@/data/cocktails';
+import { ingredients as staticIngredients, glassTypes as staticGlassTypes } from '@/data/ingredients';
 
 interface Category {
   id: string;
@@ -58,7 +60,9 @@ class SmartCache {
         console.error('Fallback cache also failed:', fallbackError);
       }
       
-      return [];
+      // Final fallback to static data
+      console.log('Using static cocktails as final fallback');
+      return staticCocktails;
     }
   }
 
@@ -101,7 +105,9 @@ class SmartCache {
         console.error('Fallback cache also failed:', fallbackError);
       }
       
-      return [];
+      // Final fallback to static data
+      console.log('Using static ingredients as final fallback');
+      return staticIngredients;
     }
   }
 
@@ -128,7 +134,21 @@ class SmartCache {
       
     } catch (error) {
       console.error('Error in smart cache getGlassTypes:', error);
-      return [];
+
+      // Fallback to any cached data we might have
+      try {
+        const { data: fallbackData } = await localDatabase.getGlassTypes();
+        if (fallbackData.length > 0) {
+          console.log('Using fallback cached glass types data');
+          return fallbackData;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback glass types cache also failed:', fallbackError);
+      }
+
+      // Final fallback to static data
+      console.log('Using static glass types as final fallback');
+      return staticGlassTypes;
     }
   }
 
@@ -189,7 +209,17 @@ class SmartCache {
       return cocktails;
     } catch (error) {
       console.error('Failed to fetch cocktails from Supabase:', error);
-      throw error;
+
+      // Fallback to static data
+      console.log('Falling back to static cocktail data');
+      try {
+        await localDatabase.saveCocktails(staticCocktails);
+        console.log(`Using static cocktail data: ${staticCocktails.length} items`);
+        return staticCocktails;
+      } catch (cacheError) {
+        console.error('Failed to cache static cocktails:', cacheError);
+        return staticCocktails;
+      }
     }
   }
 
@@ -222,7 +252,17 @@ class SmartCache {
       return ingredients;
     } catch (error) {
       console.error('Failed to fetch ingredients from Supabase:', error);
-      throw error;
+
+      // Fallback to static data
+      console.log('Falling back to static ingredient data');
+      try {
+        await localDatabase.saveIngredients(staticIngredients);
+        console.log(`Using static ingredient data: ${staticIngredients.length} items`);
+        return staticIngredients;
+      } catch (cacheError) {
+        console.error('Failed to cache static ingredients:', cacheError);
+        return staticIngredients;
+      }
     }
   }
 
@@ -237,7 +277,17 @@ class SmartCache {
       return glassTypes;
     } catch (error) {
       console.error('Failed to fetch glass types from Supabase:', error);
-      throw error;
+
+      // Fallback to static data
+      console.log('Falling back to static glass types data');
+      try {
+        await localDatabase.saveGlassTypes(staticGlassTypes);
+        console.log(`Using static glass types data: ${staticGlassTypes.length} items`);
+        return staticGlassTypes;
+      } catch (cacheError) {
+        console.error('Failed to cache static glass types:', cacheError);
+        return staticGlassTypes;
+      }
     }
   }
 

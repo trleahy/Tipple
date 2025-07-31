@@ -58,7 +58,7 @@ function getCocktailData(): Cocktail[] {
           if (storedCocktails.length > 0) {
             cocktailCache = storedCocktails;
             cocktailMap = new Map(storedCocktails.map((cocktail: Cocktail) => [cocktail.id, cocktail]));
-            cocktailCacheTimestamp = Date.now();
+
             return cocktailCache;
           }
         }
@@ -70,7 +70,7 @@ function getCocktailData(): Cocktail[] {
     // Fall back to static data
     cocktailCache = cocktails;
     cocktailMap = new Map(cocktails.map(cocktail => [cocktail.id, cocktail]));
-    cocktailCacheTimestamp = Date.now();
+
   }
   return cocktailCache;
 }
@@ -157,7 +157,7 @@ export async function getAllCocktailsAsync(): Promise<Cocktail[]> {
     // Update local cache for backward compatibility
     cocktailCache = cocktails;
     cocktailMap = new Map(cocktails.map(cocktail => [cocktail.id, cocktail]));
-    cocktailCacheTimestamp = Date.now();
+
     return cocktails;
   } catch (error) {
     console.warn('Failed to get cocktails from smart cache, using fallback:', error);
